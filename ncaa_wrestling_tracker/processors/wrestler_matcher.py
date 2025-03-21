@@ -158,15 +158,33 @@ def get_wrestler_data(match_info: Dict[str, Any], wrestler_key: str,
                     return wrestler_data, used_key, match_method
     
     # Special handling for problematic wrestlers - check if this wrestler is in our problem list
+    # IMPROVED MATCHING LOGIC FOR PROBLEMATIC WRESTLERS
     for wrestler_name_prob, info in problem_wrestler_info.items():
         std_wrestler = standardize_text(wrestler_name_prob)
         std_match_wrestler = standardize_text(wrestler_name)
         
-        # Check various forms of the name
-        if (std_wrestler in std_match_wrestler or 
-            std_match_wrestler in std_wrestler or 
-            std_wrestler.split()[-1] == std_match_wrestler.split()[-1]):
-            
+        # Get first and last names for both wrestlers
+        wrestler_parts = std_wrestler.split()
+        match_parts = std_match_wrestler.split()
+        
+        # More precise matching to avoid mixing up wrestlers with same last name
+        is_match = False
+        
+        # Check if full names match exactly
+        if std_wrestler == std_match_wrestler:
+            is_match = True
+        # Check if weight classes match (if available)
+        elif (weight and info['weight'] and weight == info['weight'] and
+              # And last names match
+              wrestler_parts[-1] == match_parts[-1]):
+            is_match = True
+        # Check if first AND last names match (more strict than just last name)
+        elif (len(wrestler_parts) > 1 and len(match_parts) > 1 and
+              wrestler_parts[0] == match_parts[0] and  # First name matches
+              wrestler_parts[-1] == match_parts[-1]):  # Last name matches
+            is_match = True
+        
+        if is_match:
             # It's a problematic wrestler - use the known data directly
             log_problem(f"DIRECT MATCH for problematic {wrestler_key}: {wrestler_name} -> {wrestler_name_prob}")
             wrestler_data = {
