@@ -16,8 +16,7 @@ from ncaa_wrestling_tracker.processors.scorer import calculate_team_points
 from ncaa_wrestling_tracker.reports.report_generator import generate_detailed_report, generate_summary_report
 from ncaa_wrestling_tracker.reports.analytics import debug_wrestler
 
-
-def main():
+def main(return_results=False):
     """Main application function"""
     print(f"\nNCAA Wrestling Tournament Draft Tracker")
     print(f"======================================")
@@ -28,7 +27,7 @@ def main():
     
     # Validate input files
     if not validate_input_files():
-        return
+        return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame()) if return_results else None
     
     # Save copies of the input files
     save_input_copy(config.OUTPUT_DIR, config.RESULTS_FILE)
@@ -40,7 +39,7 @@ def main():
         print(f"Successfully loaded {sum(len(team) for team in drafted_wrestlers.values())} wrestlers from {len(drafted_wrestlers)} teams")
     except Exception as e:
         print(f"Error loading draft data: {e}")
-        return
+        return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame()) if return_results else None
     
     # Load results text from file
     try:
@@ -48,7 +47,7 @@ def main():
         print(f"Successfully loaded results from {config.RESULTS_FILE}")
     except Exception as e:
         print(f"Error loading results file: {e}")
-        return
+        return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame()) if return_results else None
     
     # Build the wrestler lookup tables
     wrestler_lookup, weight_seed_lookup, all_wrestlers, problem_wrestler_info = build_wrestler_lookup(drafted_wrestlers)
@@ -63,7 +62,7 @@ def main():
         print(f"Error processing results: {e}")
         import traceback
         traceback.print_exc()
-        return
+        return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame()) if return_results else None
     
     # Calculate team points
     team_summary = calculate_team_points(results_df)
@@ -74,14 +73,14 @@ def main():
         save_text_report(report)
     except Exception as e:
         print(f"Error generating report: {e}")
-        return
+        return (results_df, round_df, placements_df) if return_results else None
     
     # Save results to files
     try:
         save_results_to_csv(results_df, team_summary, round_df, placements_df)
     except Exception as e:
         print(f"Error saving results: {e}")
-        return
+        return (results_df, round_df, placements_df) if return_results else None
     
     # Save the debug log and problem cases
     save_debug_log()
@@ -94,12 +93,6 @@ def main():
     summary = generate_summary_report(team_summary)
     print("\n" + summary)
     
-    # If a specific wrestler is requested for debugging, show details
-    if len(sys.argv) > 1 and sys.argv[1] == "--debug-wrestler" and len(sys.argv) > 2:
-        wrestler_name = sys.argv[2]
-        print(f"\nDebugging wrestler: {wrestler_name}")
-        debug_wrestler(wrestler_name, results_df)
-
-
-if __name__ == "__main__":
-    main()
+    # Return results if requested
+    if return_results:
+        return results_df, round_df, placements_df
