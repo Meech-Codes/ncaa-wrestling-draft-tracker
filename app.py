@@ -1,9 +1,14 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
+# Import from your package (make sure it's properly included in the GitHub repo)
+# Standard libraries
 import os
 import sys
 from datetime import datetime
+
+# Third-party libraries
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np  # if you need numpy
 
 # Add the current directory to the path so we can import the package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
