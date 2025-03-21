@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Tuple
 from ncaa_wrestling_tracker import config
 from ncaa_wrestling_tracker.utils.logging_utils import log_debug, log_problem
 from ncaa_wrestling_tracker.parsers.match_parser import parse_match_result, analyze_win_types, find_specific_wrestlers
+from ncaa_wrestling_tracker.parsers.match_parser import ROUND_MAPPING  # Import the round mapping dictionary
 from ncaa_wrestling_tracker.parsers.placement_parser import parse_placement_line
 from ncaa_wrestling_tracker.processors.wrestler_matcher import get_wrestler_data
 from ncaa_wrestling_tracker.processors.scorer import assign_placement_points
@@ -91,13 +92,24 @@ def parse_wrestling_results(results_text: str, drafted_wrestlers: Dict[str, List
         # Track matches by wrestler name (for troubleshooting specific wrestlers)
         matches_by_wrestler = defaultdict(list)
         
-        # Parse each line of results
-        current_weight = None
-        
         # First pass - identify all problematic matches and explicit placements
+        current_section = None
+        current_weight = None
         for line in results_text.split('\n'):
             line = line.strip()
             if not line:
+                continue
+                
+            # Check if this is a section header (no hyphen and not a weight class)
+            if '-' not in line and not re.match(r'^(125|133|141|149|157|165|174|184|197|285|DH)$', line):
+                # Store as a potential section header
+                potential_section = line
+                # Check if it's a known round type
+                for round_name in ROUND_MAPPING.keys():
+                    if round_name in potential_section:
+                        current_section = potential_section
+                        log_debug(f"Found section header: {current_section}")
+                        break
                 continue
                 
             # Check if this is a weight class indicator
@@ -139,9 +151,23 @@ def parse_wrestling_results(results_text: str, drafted_wrestlers: Dict[str, List
                     matches_by_wrestler[wrestler].append(line)
         
         # Second pass - do the actual parsing
+        current_section = None
+        current_weight = None
         for line in results_text.split('\n'):
             line = line.strip()
             if not line:
+                continue
+                
+            # Check if this is a section header
+            if '-' not in line and not re.match(r'^(125|133|141|149|157|165|174|184|197|285|DH)$', line):
+                # Store as a potential section header
+                potential_section = line
+                # Check if it's a known round type
+                for round_name in ROUND_MAPPING.keys():
+                    if round_name in potential_section:
+                        current_section = potential_section
+                        log_debug(f"Processing section: {current_section}")
+                        break
                 continue
                 
             # Check if this is a weight class indicator
@@ -149,8 +175,8 @@ def parse_wrestling_results(results_text: str, drafted_wrestlers: Dict[str, List
                 current_weight = line
                 continue
             
-            # Parse match result - with more robust handling
-            match_info = parse_match_result(line, current_weight)
+            # Parse match result - with more robust handling and passing section header
+            match_info = parse_match_result(line, current_weight, current_section)
             if not match_info:
                 log_debug(f"Failed to parse line: {line}")
                 # Add special handling if this looks like a problematic case
@@ -383,16 +409,34 @@ def parse_wrestling_results(results_text: str, drafted_wrestlers: Dict[str, List
         results_df = results_df.sort_values(['owner', 'weight'])
         
         # Convert round results to DataFrame
-        # First sort the rounds in a logical order
-        sorted_rounds = sorted(list(all_rounds), key=lambda x: (
-            0 if x.startswith('Champ') else 1,  # Championship before Consolation
-            int(re.search(r'R(\d+)', x).group(1))  # Then by round number
-        ))
-        
-        # Create the DataFrame with all rounds as columns
         round_df = pd.DataFrame.from_dict(round_results, orient='index')
         round_df.index.name = 'Wrestler ID'
         round_df.reset_index(inplace=True)
+        
+        # Get the actual available columns that are rounds
+        available_rounds = []
+        for col in round_df.columns:
+            if col in all_rounds:
+                available_rounds.append(col)
+        
+        # Define the desired order for the rounds (only including ones that actually exist)
+        round_order = []
+        round_categories = [
+            'Prelim', 'Pig Tails', 
+            'Champ. R1', 'Champ. R2', 'Quarters', 'Semis', 'Finals',
+            'Cons. Pig Tails', 'Cons. R1', 'Cons. R2', 'Cons. R3', 'Cons. R4', 'Cons. R5', 'Cons. Semis',
+            '3rd Place', '5th Place', '7th Place'
+        ]
+        
+        # Add rounds in the desired order, but only if they exist
+        for round_name in round_categories:
+            if round_name in available_rounds:
+                round_order.append(round_name)
+        
+        # Add any remaining rounds not in our predefined list
+        for round_name in available_rounds:
+            if round_name not in round_order:
+                round_order.append(round_name)
         
         # Sort the round summary by weight class and seed
         round_df['Weight'] = pd.Categorical(round_df['Weight'], 
@@ -408,11 +452,16 @@ def parse_wrestling_results(results_text: str, drafted_wrestlers: Dict[str, List
         
         # Reorder the columns to have a logical flow
         cols = ['Weight', 'Wrestler', 'School', 'Seed', 'Owner']
-        if sorted_rounds:
-            cols.extend(sorted_rounds)
+        for col in round_order:
+            if col in round_df.columns:
+                cols.append(col)
+        
         if 'Placement' in round_df.columns:
             cols.append('Placement')
-        round_df = round_df[cols]
+        
+        # Only select columns that exist in the DataFrame
+        existing_cols = [col for col in cols if col in round_df.columns]
+        round_df = round_df[existing_cols]
         
         # Convert placements to DataFrame
         placements_df = pd.DataFrame.from_dict(wrestler_placements, orient='index')

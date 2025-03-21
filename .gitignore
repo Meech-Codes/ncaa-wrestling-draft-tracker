@@ -16,6 +16,7 @@ env/
 ENV/
 
 # Results and data folders
+Results/
 results_*/
 
 # IDE
