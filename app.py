@@ -1,14 +1,9 @@
-# Import from your package (make sure it's properly included in the GitHub repo)
-# Standard libraries
-import os
-import sys
-from datetime import datetime
-
-# Third-party libraries
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np  # if you need numpy
+import os
+import sys
+from datetime import datetime
 
 # Add the current directory to the path so we can import the package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,6 +12,34 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ncaa_wrestling_tracker.main import main
 from ncaa_wrestling_tracker.processors.scorer import calculate_team_points
 from ncaa_wrestling_tracker import config
+
+# Update config paths to use the repository's Data folder
+def setup_config_paths():
+    # Determine if we're running on Streamlit Cloud or locally
+    is_streamlit_cloud = os.getenv('STREAMLIT_SHARING', '') == 'true'
+    
+    # Get the repository root path
+    if is_streamlit_cloud:
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+    else:
+        repo_root = os.getcwd()  # Current working directory
+    
+    # Update config paths
+    config.BASE_PATH = repo_root
+    config.DATA_PATH = os.path.join(repo_root, "Data")
+    config.RESULTS_FILE = os.path.join(config.DATA_PATH, "wrestling_results.txt")
+    config.DRAFT_CSV = os.path.join(config.DATA_PATH, "ncaa_wrestling_draft.csv")
+    config.OUTPUT_DIR = os.path.join(repo_root, "Results")
+    
+    # Ensure the output directory exists
+    os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+    
+    print(f"Using data path: {config.DATA_PATH}")
+    print(f"Results file: {config.RESULTS_FILE}")
+    print(f"Draft CSV: {config.DRAFT_CSV}")
+
+# Call the setup function
+setup_config_paths()
 
 # Set page configuration
 st.set_page_config(
@@ -29,6 +52,24 @@ st.set_page_config(
 st.title("NCAA Wrestling Tournament Tracker")
 st.markdown(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
+# Sidebar for debugging information
+st.sidebar.subheader("Data Paths")
+st.sidebar.text(f"Data folder: {config.DATA_PATH}")
+st.sidebar.text(f"Results file: {config.RESULTS_FILE}")
+st.sidebar.text(f"Draft CSV: {config.DRAFT_CSV}")
+
+# Check if files exist and display status
+results_exists = os.path.exists(config.RESULTS_FILE)
+draft_exists = os.path.exists(config.DRAFT_CSV)
+
+st.sidebar.text(f"Results file exists: {results_exists}")
+st.sidebar.text(f"Draft CSV exists: {draft_exists}")
+
+if not results_exists or not draft_exists:
+    st.sidebar.error("One or more data files are missing!")
+    st.sidebar.info("Make sure your repository contains the following files:")
+    st.sidebar.code("Data/wrestling_results.txt\nData/ncaa_wrestling_draft.csv")
+
 # Sidebar for controls
 st.sidebar.title("Controls")
 update_button = st.sidebar.button("Update Results")
@@ -37,9 +78,27 @@ update_button = st.sidebar.button("Update Results")
 def load_or_process_data():
     if update_button or 'results_df' not in st.session_state:
         with st.spinner("Processing tournament results..."):
-            # Run the main function from your package
             try:
+                # Verify files exist
+                if not os.path.exists(config.RESULTS_FILE):
+                    st.error(f"Results file not found: {config.RESULTS_FILE}")
+                    return
+                if not os.path.exists(config.DRAFT_CSV):
+                    st.error(f"Draft CSV not found: {config.DRAFT_CSV}")
+                    return
+                
+                # Run the main function from your package
                 results_df, round_df, placements_df = main(return_results=True)
+                
+                # Debug output to see what's being returned
+                st.sidebar.text(f"Results DF shape: {results_df.shape}")
+                st.sidebar.text(f"Round DF shape: {round_df.shape}")
+                
+                # Check if the DataFrames contain the expected columns
+                if 'champ_wins' not in results_df.columns:
+                    st.warning("Results data is missing expected columns. Available columns:")
+                    st.write(results_df.columns.tolist())
+                
                 team_summary = calculate_team_points(results_df)
                 
                 # Save to session state
@@ -50,6 +109,8 @@ def load_or_process_data():
                 st.success("Results updated successfully!")
             except Exception as e:
                 st.error(f"Error processing results: {e}")
+                import traceback
+                st.error(traceback.format_exc())
                 if 'results_df' not in st.session_state:
                     st.session_state['results_df'] = pd.DataFrame()
                     st.session_state['round_df'] = pd.DataFrame()
