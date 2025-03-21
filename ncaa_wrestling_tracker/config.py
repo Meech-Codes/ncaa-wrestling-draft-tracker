@@ -13,10 +13,15 @@ DRAFT_CSV = os.path.join(DATA_PATH, "ncaa_wrestling_draft.csv")
 # Enable debugging output
 DEBUG_MODE = True
 
-# Create timestamped output directory in the project root
+# Create Results folder with timestamped subfolders
+RESULTS_BASE = os.path.join(PROJECT_ROOT, "Results")
+if not os.path.exists(RESULTS_BASE):
+    os.makedirs(RESULTS_BASE)
+    
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, f"results_{timestamp}")
-
+OUTPUT_DIR = os.path.join(RESULTS_BASE, timestamp)
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
 # Output file paths
 OUTPUT_WRESTLER_CSV = os.path.join(OUTPUT_DIR, "wrestler_results.csv")
 OUTPUT_TEAM_CSV = os.path.join(OUTPUT_DIR, "team_standings.csv")
