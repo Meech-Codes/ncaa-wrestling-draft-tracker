@@ -1,0 +1,152 @@
+/* NCAA Wrestling App Custom Styles */
+
+/* General Layout Improvements */
+.main .block-container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    /* Make buttons full width on mobile */
+    .stButton button {
+        width: 100%;
+    }
+    
+    /* Reduce padding on mobile */
+    .main .block-container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    /* Make tables scroll horizontally on mobile */
+    .stDataFrame {
+        overflow-x: auto;
+    }
+    
+    /* Adjust font sizes for mobile */
+    h1 {
+        font-size: 1.8rem !important;
+    }
+    
+    h2 {
+        font-size: 1.5rem !important;
+    }
+    
+    h3 {
+        font-size: 1.2rem !important;
+    }
+    
+    p, .stMarkdown {
+        font-size: 0.9rem !important;
+    }
+    
+    /* Adjust chart size for mobile */
+    .js-plotly-plot {
+        max-height: 350px !important;
+    }
+    
+    /* Better tab spacing on mobile */
+    .stTabs [data-baseweb="tab"] {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+/* Desktop Enhancements */
+@media (min-width: 769px) {
+    /* Better use of space */
+    .main .block-container {
+        max-width: 1200px;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    /* Chart improvements */
+    .js-plotly-plot {
+        min-height: 400px;
+    }
+}
+
+/* Improved Table Styling for All Devices */
+.dataframe {
+    font-size: 14px;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.dataframe th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    text-align: left;
+    padding: 0.5rem;
+}
+
+.dataframe td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e1e1e1;
+}
+
+/* Alternating row colors for better readability */
+.dataframe tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Hover effect for better UX */
+.dataframe tbody tr:hover {
+    background-color: #f0f0f0;
+}
+
+/* General Typography Improvements */
+h1, h2, h3 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+/* Better Tab Styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 2px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 40px;
+    white-space: nowrap;
+}
+
+.stTabs [data-baseweb="tab-panel"] {
+    padding-top: 1rem;
+}
+
+/* Better Selectbox Styling */
+.stSelectbox label {
+    font-weight: 500;
+}
+
+/* Metric Styling */
+.stMetric {
+    background-color: #f9f9f9;
+    padding: 1rem;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.stMetric label {
+    font-weight: 500;
+}
+
+.stMetric [data-testid="stMetricValue"] {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Improved Button Styling */
+.stButton button {
+    font-weight: 500;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s;
+}
+
+.stButton button:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
