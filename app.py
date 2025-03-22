@@ -373,9 +373,9 @@ with tabs[4]:
                     # Calculate percentages
                     total = team_row['total_points']
                     if total > 0:  # Avoid division by zero
-                        adv_pct = (team_row['total_advancement'] / total * 100).round(1)
-                        bonus_pct = (team_row['total_bonus'] / total * 100).round(1)
-                        place_pct = (team_row['placement_points'] / total * 100).round(1)
+                        adv_pct = round((team_row['total_advancement'] / total * 100),1)
+                        bonus_pct = round((team_row['total_bonus'] / total * 100),1)
+                        place_pct = round((team_row['placement_points'] / total * 100),1)
                         
                         # Create pie chart
                         labels = ['Advancement', 'Bonus', 'Placement']
