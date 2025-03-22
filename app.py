@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+import sys
+from datetime import datetime
+import pytz
 import numpy as np
 import seaborn as sns
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import os
-import sys
-from datetime import datetime
-import pytz  # Import pytz for timezone handling
 
 # Add the current directory to the path so we can import the package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -108,34 +108,112 @@ tabs = st.tabs(["Team Standings", "Round-by-Round", "Wrestler Details", "Placeme
 with tabs[0]:
     st.header("Team Standings")
     if 'team_summary' in st.session_state and not st.session_state['team_summary'].empty:
-        # Display the team standings table
-        team_df = st.session_state['team_summary'].copy()
-        team_df = team_df.reset_index(drop=True)
-        team_df.index = team_df.index + 1  # Start rank at 1
-        
-        # Format columns for display
-        display_df = team_df.copy()
-        display_cols = ['owner', 'total_points', 'total_advancement', 'total_bonus', 'placement_points']
-        display_cols = [col for col in display_cols if col in display_df.columns]
-        display_df = display_df[display_cols]
-        
-        # Rename columns for display
-        display_df.columns = ['Team', 'Total Points', 'Advancement Points', 'Bonus Points', 
-                            'Placement Points' if 'placement_points' in display_cols else '']
-        
-        # Make the table more visible - adjust height to show all rows
-        st.dataframe(display_df, use_container_width=True, height=max(125, len(display_df) * 35 + 38))
-        
-        # Create a smaller chart for team points
-        col1, col2 = st.columns([1, 1])  # Use columns to make chart smaller
-        with col1:
-            fig, ax = plt.subplots(figsize=(6, 4))  # Smaller figure size
-            ax.bar(team_df['owner'], team_df['total_points'], color='navy')
-            ax.set_ylabel('Total Points')
-            ax.set_title('Team Standings')
-            plt.xticks(rotation=45, ha='right', fontsize=8)  # Smaller font
-            plt.tight_layout()
-            st.pyplot(fig)
+        try:
+            # Prepare data
+            team_df = st.session_state['team_summary'].copy()
+            results_df = st.session_state['results_df'].copy()
+            
+            # Calculate additional metrics
+            
+            # 1. Points per wrestler
+            team_df['Wrestlers with Points'] = team_df.get('Wrestlers with Points', pd.Series([0] * len(team_df)))
+            team_df['Pts per Wrestler'] = (team_df['total_points'] / team_df['Wrestlers with Points']).fillna(0).round(2)
+            
+            # 2. Bonus point efficiency (% of points from bonus)
+            team_df['Bonus %'] = (team_df['total_bonus'] / team_df['total_points'] * 100).fillna(0).round(1)
+            
+            # 3. Calculate All-Americans (wrestlers who placed in top 8)
+            if 'placement' in results_df.columns:
+                all_americans = results_df[results_df['placement'].notna()].groupby('owner').size()
+                team_df['All-Americans'] = team_df.index.map(lambda x: all_americans.get(x, 0) if x in all_americans.index else 0)
+            else:
+                team_df['All-Americans'] = 0
+            
+            # Sort by total points
+            team_df = team_df.sort_values('total_points', ascending=False)
+            
+            # Reset index for display
+            display_df = team_df.reset_index(drop=True)
+            display_df.index = display_df.index + 1  # Start at 1 for ranking
+            
+            # Select columns for display and rename
+            cols_to_display = [
+                'owner', 'total_points', 'total_advancement', 'total_bonus', 
+                'placement_points', 'Pts per Wrestler', 'Bonus %', 'All-Americans'
+            ]
+            cols_to_display = [col for col in cols_to_display if col in display_df.columns]
+            
+            display_df = display_df[cols_to_display].rename(columns={
+                'owner': 'Team',
+                'total_points': 'Total Points',
+                'total_advancement': 'Adv Points',
+                'total_bonus': 'Bonus Points',
+                'placement_points': 'Place Points'
+            })
+            
+            # Create horizontal bar chart of total points
+            bar_fig = px.bar(
+                display_df, 
+                y='Team', 
+                x='Total Points',
+                orientation='h',
+                color='Total Points',
+                color_continuous_scale='Viridis',
+                text='Total Points'
+            )
+            
+            bar_fig.update_layout(
+                title='Team Rankings by Total Points',
+                yaxis={'categoryorder': 'total ascending'},
+                height=400
+            )
+            
+            # Display chart and table side by side
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.plotly_chart(bar_fig, use_container_width=True)
+            
+            with col2:
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    height=400
+                )
+                
+            # Add a visualization of points per wrestler
+            st.subheader("Efficiency Metrics")
+            
+            # Create bubble chart: x=Pts per Wrestler, y=Bonus %, size=Total Points
+            if 'Pts per Wrestler' in display_df.columns and 'Bonus %' in display_df.columns:
+                bubble_fig = px.scatter(
+                    display_df,
+                    x='Pts per Wrestler',
+                    y='Bonus %',
+                    size='Total Points',
+                    color='Team',
+                    hover_name='Team',
+                    text='Team',
+                    size_max=50,
+                    title='Team Efficiency: Points per Wrestler vs Bonus Point %'
+                )
+                
+                bubble_fig.update_traces(
+                    textposition='top center',
+                    marker=dict(sizemin=5)
+                )
+                
+                bubble_fig.update_layout(
+                    xaxis_title='Points per Wrestler',
+                    yaxis_title='Bonus Point Percentage',
+                    height=500
+                )
+                
+                st.plotly_chart(bubble_fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating Team Standings visualizations: {e}")
+            import traceback
+            st.error(traceback.format_exc())
     else:
         st.info("No team standings data available. Please update results.")
 
@@ -275,7 +353,7 @@ with tabs[3]:
         # Display the dataframe
         st.dataframe(filtered_df, use_container_width=True)
     else:
-        st.info("No placement data available. Please wait for updated results.")
+        st.info("No placement data available. Please update results.")
 
 with tabs[4]:
     st.header("Advanced Analytics Dashboard")
@@ -360,38 +438,160 @@ with tabs[4]:
                 # Display the chart
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # Points composition as percentages (pie charts)
-                st.subheader("Points Composition by Team")
+                # Points composition analysis instead of pie charts
+                st.subheader("Team Performance Analysis")
+
+                # Create two columns for different metrics
+                col1, col2 = st.columns(2)
                 
-                # Create a multi-column layout for pie charts
-                cols = st.columns(min(3, len(team_df)))
-                
-                # Create a pie chart for each team
-                for i, (_, team_row) in enumerate(team_df.iterrows()):
-                    col_idx = i % 3  # Use modulo to wrap to next row
+                with col1:
+                    # Point Source Distribution - Horizontal Stacked Bar (% instead of raw values)
+                    normalized_df = team_df.copy()
+                    for _, row in normalized_df.iterrows():
+                        total = row['total_points']
+                        if total > 0:  # Avoid division by zero
+                            normalized_df.at[_, 'total_advancement'] = row['total_advancement'] / total * 100
+                            normalized_df.at[_, 'total_bonus'] = row['total_bonus'] / total * 100
+                            normalized_df.at[_, 'placement_points'] = row['placement_points'] / total * 100
                     
-                    # Calculate percentages
-                    total = team_row['total_points']
-                    if total > 0:  # Avoid division by zero
-                        adv_pct = round((team_row['total_advancement'] / total * 100),1)
-                        bonus_pct = round((team_row['total_bonus'] / total * 100),1)
-                        place_pct = round((team_row['placement_points'] / total * 100),1)
-                        
-                        # Create pie chart
-                        labels = ['Advancement', 'Bonus', 'Placement']
-                        values = [adv_pct, bonus_pct, place_pct]
-                        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-                        
-                        with cols[col_idx]:
-                            fig = px.pie(
-                                values=values, 
-                                names=labels,
-                                color_discrete_sequence=colors,
-                                title=f"{team_row['owner']} - {team_row['total_points']} pts"
-                            )
-                            fig.update_traces(textinfo='percent+label')
-                            st.plotly_chart(fig, use_container_width=True)
-            
+                    fig = go.Figure()
+                    
+                    # Add advancement points percentage
+                    fig.add_trace(go.Bar(
+                        name='Advancement',
+                        y=normalized_df['owner'],
+                        x=normalized_df['total_advancement'],
+                        marker_color='#1f77b4',
+                        orientation='h',
+                        text=[f"{x:.1f}%" for x in normalized_df['total_advancement']],
+                        textposition='auto'
+                    ))
+                    
+                    # Add bonus points percentage
+                    fig.add_trace(go.Bar(
+                        name='Bonus',
+                        y=normalized_df['owner'],
+                        x=normalized_df['total_bonus'],
+                        marker_color='#ff7f0e',
+                        orientation='h',
+                        text=[f"{x:.1f}%" for x in normalized_df['total_bonus']],
+                        textposition='auto'
+                    ))
+                    
+                    # Add placement points percentage
+                    fig.add_trace(go.Bar(
+                        name='Placement',
+                        y=normalized_df['owner'],
+                        x=normalized_df['placement_points'],
+                        marker_color='#2ca02c',
+                        orientation='h',
+                        text=[f"{x:.1f}%" for x in normalized_df['placement_points']],
+                        textposition='auto'
+                    ))
+                    
+                    # Update layout
+                    fig.update_layout(
+                        barmode='stack',
+                        title='Points Composition (%)',
+                        xaxis_title='Percentage of Total Points',
+                        yaxis_title='Team',
+                        legend_title='Point Source',
+                        yaxis={'categoryorder': 'total ascending'},
+                        height=400
+                    )
+                    
+                    # Display the chart
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    # Calculate team efficiency metrics
+                    efficiency_df = pd.DataFrame({
+                        'Team': team_df['owner'],
+                        'Total Points': team_df['total_points'],
+                        'Avg Points per Win': team_df['total_points'] / (team_df['champ_wins'] + team_df['cons_wins']).replace(0, np.nan),
+                        'Bonus Point Ratio': team_df['total_bonus'] / (team_df['champ_wins'] + team_df['cons_wins']).replace(0, np.nan)
+                    }).dropna()
+                    
+                    # Round the metrics
+                    efficiency_df['Avg Points per Win'] = efficiency_df['Avg Points per Win'].round(2)
+                    efficiency_df['Bonus Point Ratio'] = efficiency_df['Bonus Point Ratio'].round(2)
+                    
+                    fig = px.scatter(
+                        efficiency_df,
+                        x='Avg Points per Win',
+                        y='Bonus Point Ratio',
+                        size='Total Points',
+                        color='Team',
+                        text='Team',
+                        title='Team Efficiency Metrics',
+                        labels={'Avg Points per Win': 'Average Points per Win', 
+                                'Bonus Point Ratio': 'Bonus Points per Win'}
+                    )
+                    
+                    fig.update_traces(
+                        textposition='top center',
+                        marker=dict(sizemin=5)
+                    )
+                    
+                    fig.update_layout(height=400)
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Add a third visualization - Advancement Success Rate
+                st.subheader("Advancement Success Analysis")
+                
+                # Calculate advancement percentage (championship success vs consolation success)
+                success_df = pd.DataFrame()
+                success_df['Team'] = team_df['owner']
+                success_df['Championship Pts'] = team_df['champ_advancement'] + team_df['champ_bonus']
+                success_df['Consolation Pts'] = team_df['cons_advancement'] + team_df['cons_bonus']
+                success_df['Placement Pts'] = team_df['placement_points']
+                success_df['Total Pts'] = team_df['total_points']
+                
+                # Sort by total points
+                success_df = success_df.sort_values('Total Pts', ascending=False)
+                
+                # Create a grouped bar chart comparing championship vs consolation points
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    name='Championship',
+                    x=success_df['Team'],
+                    y=success_df['Championship Pts'],
+                    marker_color='blue',
+                    text=success_df['Championship Pts'].round(1),
+                    textposition='auto'
+                ))
+                
+                fig.add_trace(go.Bar(
+                    name='Consolation',
+                    x=success_df['Team'],
+                    y=success_df['Consolation Pts'],
+                    marker_color='orange',
+                    text=success_df['Consolation Pts'].round(1),
+                    textposition='auto'
+                ))
+                
+                fig.add_trace(go.Bar(
+                    name='Placement',
+                    x=success_df['Team'],
+                    y=success_df['Placement Pts'],
+                    marker_color='green',
+                    text=success_df['Placement Pts'].round(1),
+                    textposition='auto'
+                ))
+                
+                fig.update_layout(
+                    barmode='group',
+                    title='Points by Bracket Type',
+                    xaxis_title='Team',
+                    yaxis_title='Points',
+                    legend_title='Bracket',
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
             except Exception as e:
                 st.error(f"Error creating Points Breakdown visualization: {e}")
                 import traceback
@@ -610,4 +810,4 @@ with tabs[4]:
 
 # Footer
 st.markdown("---")
-st.markdown("Wrestling Tournament Draft Tracker - Created by Demetri D'Orsaneo")
+st.markdown("NCAA Wrestling Draft Tournament Tracker - Created by Demetri D'Orsaneo - v0")
