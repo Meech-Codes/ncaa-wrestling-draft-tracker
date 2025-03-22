@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import sys
 from datetime import datetime
+import pytz  # Import pytz for timezone handling
 
 # Add the current directory to the path so we can import the package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,9 +39,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"  # Start with sidebar collapsed
 )
 
+# Get current time in EST timezone
+eastern = pytz.timezone('US/Eastern')
+est_time = datetime.now(eastern)
+formatted_time = est_time.strftime("%m/%d/%Y %I:%M:%S %p EST")  # 12-hour format with AM/PM
+
 # Page header
 st.title("NCAA Wrestling Tournament Tracker")
-st.markdown(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.markdown(f"Last updated: {formatted_time}")
 
 # Simplified sidebar
 st.sidebar.title("NCAA Wrestling Tournament Tracker")

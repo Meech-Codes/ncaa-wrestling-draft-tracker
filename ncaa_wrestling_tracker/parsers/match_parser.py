@@ -20,7 +20,6 @@ ROUND_MAPPING = {
     "Champ Round 2": {"bracket": "Champ", "round_num": 2, "full_round": "Champ. R2", "advancement_points": 1.0},
     "Quarterfinal": {"bracket": "Champ", "round_num": 3, "full_round": "Quarters", "advancement_points": 1.0},
     "Semifinal": {"bracket": "Champ", "round_num": 4, "full_round": "Semis", "advancement_points": 1.0},
-    "1st Place Match": {"bracket": "Champ", "round_num": 5, "full_round": "Finals", "advancement_points": 0.0},  # No advancement points for finals
     "Championships": {"bracket": "Champ", "round_num": 5, "full_round": "Finals", "advancement_points": 0.0},
     
     # Consolation bracket rounds
@@ -34,6 +33,7 @@ ROUND_MAPPING = {
     "Cons. Semi": {"bracket": "Cons", "round_num": 6, "full_round": "Cons. Semis", "advancement_points": 0.5},
     
     # Placement matches
+    "1st Place Match": {"bracket": "Champ", "round_num": 5, "full_round": "Finals", "advancement_points": 0.0},
     "3rd Place Match": {"bracket": "Place", "round_num": 7, "full_round": "3rd Place", "advancement_points": 0.0},
     "5th Place Match": {"bracket": "Place", "round_num": 7, "full_round": "5th Place", "advancement_points": 0.0},
     "7th Place Match": {"bracket": "Place", "round_num": 7, "full_round": "7th Place", "advancement_points": 0.0}
