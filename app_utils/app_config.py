@@ -1,21 +1,48 @@
 import os
 import sys
-from ncaa_wrestling_tracker import config
+import streamlit as st
+from pathlib import Path
+
+# Try to import your existing config
+try:
+    from ncaa_wrestling_tracker import config
+    PACKAGE_AVAILABLE = True
+except ImportError:
+    PACKAGE_AVAILABLE = False
 
 def setup_config_paths():
     """
     Set up configuration paths for the application.
-    Integrates with the existing ncaa_wrestling_tracker package config.
+    Handles both local and cloud deployment scenarios.
     """
-    # Update config paths if needed
-    # This uses the config from your existing package
+    # If package is available, use its config
+    if PACKAGE_AVAILABLE:
+        # Just ensure the output directory exists
+        if hasattr(config, 'OUTPUT_DIR') and config.OUTPUT_DIR:
+            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+        return config
     
-    # Ensure the output directory exists
-    if hasattr(config, 'OUTPUT_DIR') and config.OUTPUT_DIR:
-        os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+    # If package is not available, create a fallback config
+    # that points to the GitHub repository structure
+    class FallbackConfig:
+        def __init__(self):
+            # Base path is the repo root
+            self.PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+            # Data paths relative to repo root
+            self.DATA_PATH = os.path.join(self.PROJECT_ROOT, "Data")
+            self.RESULTS_FILE = os.path.join(self.DATA_PATH, "wrestling_results.txt")
+            self.DRAFT_CSV = os.path.join(self.DATA_PATH, "ncaa_wrestling_draft.csv")
+            
+            # Output directory for results
+            self.RESULTS_BASE = os.path.join(self.PROJECT_ROOT, "Results")
+            self.OUTPUT_DIR = self.RESULTS_BASE
+            
+            # Ensure directories exist
+            os.makedirs(self.DATA_PATH, exist_ok=True)
+            os.makedirs(self.OUTPUT_DIR, exist_ok=True)
     
-    # Return config for convenience
-    return config
+    return FallbackConfig()
 
 # Additional configuration settings specific to the app
 APP_CONFIG = {
@@ -33,11 +60,3 @@ APP_CONFIG = {
         "loss_text": "#9c0006"
     }
 }
-
-def get_app_path():
-    """Returns the absolute path to the app directory."""
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def get_asset_path(filename):
-    """Returns the path to an asset file."""
-    return os.path.join(get_app_path(), 'app_assets', filename)
